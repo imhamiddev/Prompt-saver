@@ -6,6 +6,7 @@ import { PAGE_SIZE, type PromptListParams } from "@/lib/validations/prompt";
 export type Prompt = Database["public"]["Tables"]["prompts"]["Row"];
 export type PromptWithCategory = Prompt & {
   category: { id: string; name: string } | null;
+  coverImageUrl: string | null;
 };
 
 export type PromptListResult = {
@@ -15,6 +16,8 @@ export type PromptListResult = {
   pageSize: number;
   totalPages: number;
 };
+
+const COVER_SIGNED_URL_EXPIRY_SECONDS = 60 * 60; // 1 hour
 
 /**
  * Paginated, searchable, filterable list of the current user's prompts
@@ -65,8 +68,66 @@ export async function getPrompts(
 
   const totalCount = count ?? 0;
 
+  const rows = data as unknown as Array<
+    Prompt & { category: { id: string; name: string } | null }
+  >;
+
+  // Fetch each prompt's first image (display_order 0) in one extra query
+  // for this page, rather than an N+1 per card. Kept as a separate query
+  // (instead of a filtered embed in the select above) because filtering
+  // an embedded to-many resource by column only filters *which embedded
+  // rows are included* - it does not guarantee exactly one row per
+  // parent, so doing it explicitly here is clearer and less fragile than
+  // relying on that PostgREST behavior.
+  const promptIds = rows.map((row) => row.id);
+  const coverPathByPromptId = new Map<string, string>();
+
+  if (promptIds.length > 0) {
+    const { data: coverImages, error: coverError } = await supabase
+      .from("prompt_images")
+      .select("prompt_id, storage_path")
+      .in("prompt_id", promptIds)
+      .eq("display_order", 0);
+
+    if (coverError) {
+      console.error("Failed to load cover images:", coverError);
+      // Non-fatal: prompts still render, just without cover thumbnails.
+    } else {
+      for (const image of coverImages) {
+        coverPathByPromptId.set(image.prompt_id, image.storage_path);
+      }
+    }
+  }
+
+  const coverPaths = Array.from(coverPathByPromptId.values());
+  let signedUrlByPath = new Map<string, string>();
+  if (coverPaths.length > 0) {
+    const { data: signedUrls, error: signError } = await supabase.storage
+      .from("prompt-images")
+      .createSignedUrls(coverPaths, COVER_SIGNED_URL_EXPIRY_SECONDS);
+
+    if (signError) {
+      console.error("Failed to sign cover image URLs:", signError);
+      // Non-fatal: prompts still render, just without cover thumbnails.
+    } else {
+      signedUrlByPath = new Map(
+        signedUrls
+          .filter((s) => s.signedUrl)
+          .map((s) => [s.path ?? "", s.signedUrl as string]),
+      );
+    }
+  }
+
+  const prompts: PromptWithCategory[] = rows.map((row) => {
+    const coverPath = coverPathByPromptId.get(row.id);
+    return {
+      ...row,
+      coverImageUrl: coverPath ? signedUrlByPath.get(coverPath) ?? null : null,
+    };
+  });
+
   return {
-    prompts: data as unknown as PromptWithCategory[],
+    prompts,
     totalCount,
     page,
     pageSize: PAGE_SIZE,
@@ -82,7 +143,7 @@ export async function getPrompts(
  */
 export async function getPromptById(
   id: string,
-): Promise<PromptWithCategory | null> {
+): Promise<(Prompt & { category: { id: string; name: string } | null }) | null> {
   const supabase = await createClient();
 
   const { data, error } = await supabase
@@ -96,5 +157,7 @@ export async function getPromptById(
     throw new Error("Something went wrong loading your data. Please try again.");
   }
 
-  return data as unknown as PromptWithCategory | null;
+  return data as unknown as
+    | (Prompt & { category: { id: string; name: string } | null })
+    | null;
 }

@@ -58,7 +58,7 @@ export function DeleteConfirmDialog({
         )}
         <AlertDialogFooter>
           <AlertDialogCancel type="button">Cancel</AlertDialogCancel>
-          <form action={formAction}>
+          <form action={formAction} className="contents">
             {Object.entries(hiddenFields).map(([key, value]) => (
               <input key={key} type="hidden" name={key} value={value} />
             ))}

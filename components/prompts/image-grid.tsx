@@ -54,7 +54,7 @@ function ImageTile({ image }: { image: PromptImageWithUrl }) {
           type="submit"
           variant="destructive"
           size="icon"
-          className="size-6 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+          className="size-6 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100"
           aria-label="Delete image"
         >
           <X className="size-3.5" />
