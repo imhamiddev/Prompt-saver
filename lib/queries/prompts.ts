@@ -59,7 +59,8 @@ export async function getPrompts(
     .range(from, to);
 
   if (error) {
-    throw new Error(`Failed to load prompts: ${error.message}`);
+    console.error("Failed to load prompts:", error);
+    throw new Error("Something went wrong loading your data. Please try again.");
   }
 
   const totalCount = count ?? 0;
@@ -91,7 +92,8 @@ export async function getPromptById(
     .maybeSingle();
 
   if (error) {
-    throw new Error(`Failed to load prompt: ${error.message}`);
+    console.error("Failed to load prompt:", error);
+    throw new Error("Something went wrong loading your data. Please try again.");
   }
 
   return data as unknown as PromptWithCategory | null;

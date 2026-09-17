@@ -21,7 +21,8 @@ export async function getCategories(): Promise<Category[]> {
     .order("name", { ascending: true });
 
   if (error) {
-    throw new Error(`Failed to load categories: ${error.message}`);
+    console.error("Failed to load categories:", error);
+    throw new Error("Something went wrong loading your data. Please try again.");
   }
 
   return data;
@@ -44,7 +45,8 @@ export async function getCategoryPromptCounts(): Promise<
     .eq("user_id", userData.user.id);
 
   if (error) {
-    throw new Error(`Failed to load category counts: ${error.message}`);
+    console.error("Failed to load category counts:", error);
+    throw new Error("Something went wrong loading your data. Please try again.");
   }
 
   const counts: Record<string, number> = {};
@@ -63,7 +65,8 @@ export async function getCategoryById(id: string): Promise<Category | null> {
     .maybeSingle();
 
   if (error) {
-    throw new Error(`Failed to load category: ${error.message}`);
+    console.error("Failed to load category:", error);
+    throw new Error("Something went wrong loading your data. Please try again.");
   }
 
   return data;

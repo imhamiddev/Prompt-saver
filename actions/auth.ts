@@ -2,13 +2,22 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { loginSchema, registerSchema } from "@/lib/validations/auth";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 export type AuthActionResult = {
   error: string | null;
   fieldErrors?: Record<string, string[]>;
 };
+
+async function getClientIp(): Promise<string> {
+  const headerList = await headers();
+  // x-forwarded-for is set by Vercel's edge network; take the first hop.
+  const forwardedFor = headerList.get("x-forwarded-for");
+  return forwardedFor?.split(",")[0]?.trim() ?? "unknown";
+}
 
 /**
  * Registers a new user via Supabase Auth (email + password, spec section 5).
@@ -29,6 +38,18 @@ export async function register(
       error: "Please fix the errors below.",
       fieldErrors: parsed.error.flatten().fieldErrors,
     };
+  }
+
+  // Defense in depth alongside Supabase Auth's own rate limiting (spec:
+  // "rate limiting where appropriate"). See lib/rate-limit.ts for the
+  // per-instance-memory caveat on serverless deployments.
+  const ip = await getClientIp();
+  const { allowed } = checkRateLimit(`register:${ip}`, {
+    max: 5,
+    windowMs: 15 * 60 * 1000,
+  });
+  if (!allowed) {
+    return { error: "Too many attempts. Please try again in a few minutes." };
   }
 
   const supabase = await createClient();
@@ -64,6 +85,18 @@ export async function login(
       error: "Please fix the errors below.",
       fieldErrors: parsed.error.flatten().fieldErrors,
     };
+  }
+
+  // Rate-limit by IP + email together: this stops both a single attacker
+  // hammering many accounts from one IP, and distributed guesses against
+  // one specific account (spec: "rate limiting where appropriate").
+  const ip = await getClientIp();
+  const { allowed } = checkRateLimit(`login:${ip}:${parsed.data.email}`, {
+    max: 10,
+    windowMs: 15 * 60 * 1000,
+  });
+  if (!allowed) {
+    return { error: "Too many attempts. Please try again in a few minutes." };
   }
 
   const supabase = await createClient();
@@ -108,9 +141,11 @@ function friendlyAuthError(message: string): string {
     return "Please confirm your email address before logging in.";
   }
   if (normalized.includes("password")) {
-    // Covers Supabase's own password-policy messages (length, strength).
+    // Covers Supabase's own password-policy messages (length, strength) -
+    // safe to show verbatim, unlike arbitrary Postgres/internal errors.
     return message;
   }
 
+  console.error("Auth action error:", message);
   return "Something went wrong. Please try again.";
 }

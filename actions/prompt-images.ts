@@ -74,6 +74,7 @@ export async function uploadPromptImage(
     .eq("prompt_id", parsed.data.promptId);
 
   if (countError) {
+    console.error("Failed to count prompt images:", countError);
     return { error: "Something went wrong. Please try again." };
   }
   if ((existingCount ?? 0) >= MAX_IMAGES_PER_PROMPT) {
@@ -92,6 +93,7 @@ export async function uploadPromptImage(
     });
 
   if (uploadError) {
+    console.error("Failed to upload image to storage:", uploadError);
     return { error: "Failed to upload image. Please try again." };
   }
 
@@ -110,6 +112,7 @@ export async function uploadPromptImage(
     if (insertError.message.toLowerCase().includes("at most 5 images")) {
       return { error: `A prompt can have at most ${MAX_IMAGES_PER_PROMPT} images.` };
     }
+    console.error("Failed to insert prompt_images row:", insertError);
     return { error: "Something went wrong. Please try again." };
   }
 
@@ -158,6 +161,7 @@ export async function deletePromptImage(
     .eq("user_id", userData.user.id);
 
   if (deleteRowError) {
+    console.error("Failed to delete prompt_images row:", deleteRowError);
     return { error: "Something went wrong. Please try again." };
   }
 
@@ -165,7 +169,12 @@ export async function deletePromptImage(
   // for "does this image exist"), so a failure here just leaves an
   // orphaned file rather than a broken reference. Not surfaced as an
   // error to the user since the delete they asked for did succeed.
-  await supabase.storage.from(BUCKET).remove([image.storage_path]);
+  const { error: removeError } = await supabase.storage
+    .from(BUCKET)
+    .remove([image.storage_path]);
+  if (removeError) {
+    console.error("Failed to remove storage object:", removeError);
+  }
 
   revalidatePath(`/prompts/${image.prompt_id}`);
   revalidatePath(`/prompts/${image.prompt_id}/edit`);
@@ -203,6 +212,7 @@ export async function reorderPromptImages(
       .eq("prompt_id", promptId)
       .eq("user_id", userData.user.id);
     if (error) {
+      console.error("Failed to reorder (phase 1):", error);
       return { error: "Something went wrong. Please try again." };
     }
   }
@@ -215,6 +225,7 @@ export async function reorderPromptImages(
       .eq("prompt_id", promptId)
       .eq("user_id", userData.user.id);
     if (error) {
+      console.error("Failed to reorder (phase 2):", error);
       return { error: "Something went wrong. Please try again." };
     }
   }

@@ -25,7 +25,8 @@ export async function getPromptImages(
     .order("display_order", { ascending: true });
 
   if (error) {
-    throw new Error(`Failed to load prompt images: ${error.message}`);
+    console.error("Failed to load prompt images:", error);
+    throw new Error("Something went wrong loading your data. Please try again.");
   }
 
   if (data.length === 0) return [];
@@ -58,7 +59,8 @@ export async function getPromptImageCount(promptId: string): Promise<number> {
     .eq("prompt_id", promptId);
 
   if (error) {
-    throw new Error(`Failed to count prompt images: ${error.message}`);
+    console.error("Failed to count prompt images:", error);
+    throw new Error("Something went wrong loading your data. Please try again.");
   }
 
   return count ?? 0;

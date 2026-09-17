@@ -15,6 +15,7 @@ export type PromptActionResult = {
 };
 
 function friendlyPromptError(message: string): string {
+  console.error("Prompt action error:", message);
   const normalized = message.toLowerCase();
   if (normalized.includes("category_id must reference")) {
     return "Choose a valid category.";
@@ -152,9 +153,15 @@ export async function deletePrompt(
     // Best-effort: the prompt (and its metadata rows, via cascade) are
     // already gone at this point, so a failure here only leaves orphaned
     // Storage objects rather than a broken user-facing reference.
-    await supabase.storage
+    const { error: removeError } = await supabase.storage
       .from("prompt-images")
       .remove(images.map((image) => image.storage_path));
+    if (removeError) {
+      console.error(
+        "Failed to remove storage objects for deleted prompt:",
+        removeError,
+      );
+    }
   }
 
   revalidatePath("/dashboard");

@@ -15,6 +15,7 @@ export type CategoryActionResult = {
 };
 
 function friendlyCategoryError(message: string): string {
+  console.error("Category action error:", message);
   const normalized = message.toLowerCase();
   if (normalized.includes("duplicate key") || normalized.includes("unique")) {
     return "You already have a category with this name.";
