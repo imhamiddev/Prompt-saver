@@ -1,0 +1,148 @@
+"use server";
+
+import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
+import { createClient } from "@/lib/supabase/server";
+import {
+  createPromptSchema,
+  updatePromptSchema,
+  deletePromptSchema,
+} from "@/lib/validations/prompt";
+
+export type PromptActionResult = {
+  error: string | null;
+  fieldErrors?: Record<string, string[]>;
+};
+
+function friendlyPromptError(message: string): string {
+  const normalized = message.toLowerCase();
+  if (normalized.includes("category_id must reference")) {
+    return "Choose a valid category.";
+  }
+  return "Something went wrong. Please try again.";
+}
+
+export async function createPrompt(
+  _prevState: PromptActionResult,
+  formData: FormData,
+): Promise<PromptActionResult> {
+  const parsed = createPromptSchema.safeParse({
+    title: formData.get("title"),
+    promptText: formData.get("promptText"),
+    categoryId: formData.get("categoryId"),
+  });
+
+  if (!parsed.success) {
+    return {
+      error: "Please fix the errors below.",
+      fieldErrors: parsed.error.flatten().fieldErrors,
+    };
+  }
+
+  const supabase = await createClient();
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  if (userError || !userData.user) {
+    return { error: "You must be logged in." };
+  }
+
+  const { data, error } = await supabase
+    .from("prompts")
+    .insert({
+      user_id: userData.user.id,
+      category_id: parsed.data.categoryId,
+      title: parsed.data.title,
+      prompt_text: parsed.data.promptText,
+    })
+    .select("id")
+    .single();
+
+  if (error || !data) {
+    return { error: friendlyPromptError(error?.message ?? "") };
+  }
+
+  revalidatePath("/dashboard");
+  redirect(`/prompts/${data.id}`);
+}
+
+export async function updatePrompt(
+  _prevState: PromptActionResult,
+  formData: FormData,
+): Promise<PromptActionResult> {
+  const parsed = updatePromptSchema.safeParse({
+    id: formData.get("id"),
+    title: formData.get("title"),
+    promptText: formData.get("promptText"),
+    categoryId: formData.get("categoryId"),
+  });
+
+  if (!parsed.success) {
+    return {
+      error: "Please fix the errors below.",
+      fieldErrors: parsed.error.flatten().fieldErrors,
+    };
+  }
+
+  const supabase = await createClient();
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  if (userError || !userData.user) {
+    return { error: "You must be logged in." };
+  }
+
+  const { data, error } = await supabase
+    .from("prompts")
+    .update({
+      title: parsed.data.title,
+      prompt_text: parsed.data.promptText,
+      category_id: parsed.data.categoryId,
+    })
+    .eq("id", parsed.data.id)
+    .eq("user_id", userData.user.id)
+    .select("id")
+    .maybeSingle();
+
+  if (error) {
+    return { error: friendlyPromptError(error.message) };
+  }
+  if (!data) {
+    return { error: "Prompt not found." };
+  }
+
+  revalidatePath("/dashboard");
+  revalidatePath(`/prompts/${parsed.data.id}`);
+  redirect(`/prompts/${parsed.data.id}`);
+}
+
+export async function deletePrompt(
+  _prevState: PromptActionResult,
+  formData: FormData,
+): Promise<PromptActionResult> {
+  const parsed = deletePromptSchema.safeParse({ id: formData.get("id") });
+
+  if (!parsed.success) {
+    return { error: "Invalid prompt." };
+  }
+
+  const supabase = await createClient();
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  if (userError || !userData.user) {
+    return { error: "You must be logged in." };
+  }
+
+  // Images (prompt_images rows + storage objects) are cleaned up by ON
+  // DELETE CASCADE for the table rows; the actual storage objects still
+  // need explicit deletion (Postgres cascade can't reach into Storage) -
+  // handled in the images action module once uploads are wired up. For
+  // now this only removes the prompt + its metadata rows.
+  const { error } = await supabase
+    .from("prompts")
+    .delete()
+    .eq("id", parsed.data.id)
+    .eq("user_id", userData.user.id);
+
+  if (error) {
+    return { error: friendlyPromptError(error.message) };
+  }
+
+  revalidatePath("/dashboard");
+  redirect("/dashboard");
+}
