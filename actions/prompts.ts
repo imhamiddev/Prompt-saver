@@ -128,11 +128,16 @@ export async function deletePrompt(
     return { error: "You must be logged in." };
   }
 
-  // Images (prompt_images rows + storage objects) are cleaned up by ON
-  // DELETE CASCADE for the table rows; the actual storage objects still
-  // need explicit deletion (Postgres cascade can't reach into Storage) -
-  // handled in the images action module once uploads are wired up. For
-  // now this only removes the prompt + its metadata rows.
+  // Look up the image storage paths before deleting the prompt. The
+  // prompt_images rows themselves are cleaned up automatically by
+  // ON DELETE CASCADE (see migration), but Postgres cascades can't reach
+  // into Storage - the actual files need an explicit removal call.
+  const { data: images } = await supabase
+    .from("prompt_images")
+    .select("storage_path")
+    .eq("prompt_id", parsed.data.id)
+    .eq("user_id", userData.user.id);
+
   const { error } = await supabase
     .from("prompts")
     .delete()
@@ -141,6 +146,15 @@ export async function deletePrompt(
 
   if (error) {
     return { error: friendlyPromptError(error.message) };
+  }
+
+  if (images && images.length > 0) {
+    // Best-effort: the prompt (and its metadata rows, via cascade) are
+    // already gone at this point, so a failure here only leaves orphaned
+    // Storage objects rather than a broken user-facing reference.
+    await supabase.storage
+      .from("prompt-images")
+      .remove(images.map((image) => image.storage_path));
   }
 
   revalidatePath("/dashboard");

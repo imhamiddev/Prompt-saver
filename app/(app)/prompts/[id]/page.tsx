@@ -6,8 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CopyButton } from "@/components/prompts/copy-button";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
+import { ImageGrid } from "@/components/prompts/image-grid";
+import { ImageUploader } from "@/components/prompts/image-uploader";
 import { deletePrompt } from "@/actions/prompts";
 import { getPromptById } from "@/lib/queries/prompts";
+import { getPromptImages } from "@/lib/queries/prompt-images";
 
 export async function generateMetadata({
   params,
@@ -33,6 +36,8 @@ export default async function PromptDetailsPage({
   if (!prompt) {
     notFound();
   }
+
+  const images = await getPromptImages(prompt.id);
 
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 p-6">
@@ -90,6 +95,14 @@ export default async function PromptDetailsPage({
       <p className="text-xs text-muted-foreground">
         Last updated {new Date(prompt.updated_at).toLocaleString()}
       </p>
+
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-medium">Images</h2>
+          <ImageUploader promptId={prompt.id} currentCount={images.length} />
+        </div>
+        <ImageGrid images={images} />
+      </div>
     </div>
   );
 }
