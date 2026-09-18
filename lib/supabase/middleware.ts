@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import type { Database } from "@/types/database.types";
 
 const PROTECTED_PREFIXES = ["/dashboard", "/prompts", "/account"];
-const AUTH_PAGE_PATHS = ["/login", "/register"];
+const AUTH_PAGE_PATHS = ["/login", "/register", "/verify-email"];
 
 /**
  * Refreshes the Supabase auth session on every request and enforces route

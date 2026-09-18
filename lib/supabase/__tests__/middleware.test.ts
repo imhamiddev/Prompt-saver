@@ -66,6 +66,25 @@ describe("updateSession route protection", () => {
     expect(response.headers.get("location")).toContain("/dashboard");
   });
 
+  it("does NOT redirect an unauthenticated user on /verify-email", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null } });
+
+    const response = await updateSession(makeRequest("/verify-email"));
+
+    expect(response.headers.get("location")).toBeNull();
+  });
+
+  it("redirects an authenticated user away from /verify-email to /dashboard", async () => {
+    mockGetUser.mockResolvedValue({
+      data: { user: { id: "user-1", email: "a@example.com" } },
+    });
+
+    const response = await updateSession(makeRequest("/verify-email"));
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toContain("/dashboard");
+  });
+
   it("allows an authenticated user through to a protected route", async () => {
     mockGetUser.mockResolvedValue({
       data: { user: { id: "user-1", email: "a@example.com" } },
