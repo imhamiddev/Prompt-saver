@@ -24,7 +24,7 @@ Built with Next.js 16 (App Router), TypeScript, Supabase (Auth + Postgres + Stor
 
 ## Status of this build
 
-Every line of code in this repository has been written, type-checked, linted, and built successfully (`tsc --noEmit`, `eslint`, `npm run build` all pass with zero errors/warnings). The database migrations have been executed and functionally tested against a real PostgreSQL instance (RLS policies, ownership triggers, the 5-image cap, and Storage policies were all verified with 17 passing SQL test cases — see `supabase/test/`). Application logic (validation, route protection, middleware redirects) is covered by 49 passing unit tests (`npx vitest run`).
+Every line of code in this repository has been written, type-checked, linted, and built successfully (`tsc --noEmit`, `eslint`, `npm run build` all pass with zero errors/warnings). The database migrations have been executed and functionally tested against a real PostgreSQL instance (RLS policies, ownership triggers, the 5-image cap, and Storage policies were all verified with 17 passing SQL test cases — see `supabase/test/`). Application logic (validation, route protection, middleware redirects) is covered by 50 passing unit tests (`npx vitest run`).
 
 **What has *not* been tested end-to-end:** this was built in a sandboxed environment without Docker, so it was never connected to a real, running Supabase project. No one has actually signed up, logged in, created a prompt, or uploaded an image against a live database. The code is written correctly and the logic has been verified in isolation, but you should treat the very first real run (after following the setup steps below) as the first true integration test. Please report anything that doesn't work as expected.
 
@@ -163,6 +163,12 @@ To unlock template editing on a new free-tier project, set up a free custom SMTP
    - Password: the Resend API key from step 1
    - Sender email / name: whatever you'd like users to see
 3. Save. The Confirm signup / Reset password template fields should now be editable — paste in the HTML files above.
+
+### Why the reset-password link looks unusual (and why not to "simplify" it)
+
+`supabase/email-templates/reset-password.html`'s link doesn't point straight at `/auth/confirm?token_hash=...` — it points at `/reset-password/start#confirm_url=...`, with the real link stuffed into the URL *fragment* (after `#`) instead of the query string.
+
+This is intentional, and fixes a very common real-world bug: many email clients and corporate security scanners "prefetch" (silently open) links inside emails to check for phishing before a person ever clicks. Since the reset token is single-use, that prefetch silently consumes it — so when the person then clicks the link themselves, Supabase rejects it with `otp_expired` / "Email link is invalid or has expired", even though nothing was actually wrong with the request. `/reset-password/start` (`app/(public)/reset-password/start/page.tsx`) reads the real link from the fragment client-side (fragments are never sent to a server, so prefetchers can't see or consume it) and requires an explicit "Continue" click before following it — so the token is only ever consumed by an intentional user action. Don't change this link back to a direct `/auth/confirm` URL; it will reintroduce that bug.
 
 If you'd rather not deal with SMTP at all, that's fine too — the app works correctly either way; you'll just be stuck with Supabase's plain default email design (and, on the free tier, the 2-3 emails/hour cap) until you configure it.
 

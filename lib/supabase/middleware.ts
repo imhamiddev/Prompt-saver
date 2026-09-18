@@ -68,12 +68,21 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(redirectUrl);
   }
 
-  // /reset-password requires *some* session (set by the recovery link),
-  // but is deliberately excluded from AUTH_PAGE_PATHS above so it does
-  // not bounce that same session back to /dashboard. A user with no
-  // session at all landing here (an expired/reused link, or direct
-  // navigation) is sent to request a fresh link instead.
-  if (!user && pathname.startsWith("/reset-password")) {
+  // /reset-password (exact path only - NOT /reset-password/start, see
+  // below) requires *some* session, set by clicking through the
+  // recovery email link. A user with no session at all landing directly
+  // on /reset-password (an expired/reused link, or direct navigation)
+  // is sent to request a fresh link instead.
+  //
+  // /reset-password/start is deliberately excluded from this check: it
+  // is the public handoff page a person lands on straight from the
+  // email, *before* they have any session (see
+  // supabase/email-templates/reset-password.html and
+  // app/(public)/reset-password/start/page.tsx for why this page exists
+  // - it defeats email-scanner link prefetching that would otherwise
+  // silently consume the single-use token). Redirecting it away here
+  // would break the flow for every legitimate user, not just scanners.
+  if (!user && pathname === "/reset-password") {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/forgot-password";
     redirectUrl.search = "";

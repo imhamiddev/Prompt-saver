@@ -144,4 +144,16 @@ describe("updateSession route protection", () => {
     // indistinguishable from a normal session at this level.
     expect(response.headers.get("location")).toBeNull();
   });
+
+  it("does NOT redirect an unauthenticated user away from /reset-password/start", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null } });
+
+    // This is the public link-handoff page from the reset-password
+    // email (see reset-password.html + start/page.tsx) - the person has
+    // no session yet at this point, by design, and must not be bounced
+    // to /forgot-password the way a direct hit on /reset-password is.
+    const response = await updateSession(makeRequest("/reset-password/start"));
+
+    expect(response.headers.get("location")).toBeNull();
+  });
 });
