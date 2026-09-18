@@ -61,6 +61,9 @@ export function LoginForm({ redirectTo }: { redirectTo?: string }) {
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between">
               <Label htmlFor="password">Password</Label>
+              <Button variant="link" className="h-auto p-0 text-xs" asChild>
+                <Link href="/forgot-password">Forgot password?</Link>
+              </Button>
             </div>
             <Input
               id="password"

@@ -102,4 +102,46 @@ describe("updateSession route protection", () => {
 
     expect(response.headers.get("location")).toBeNull();
   });
+
+  it("does NOT redirect an unauthenticated user on /forgot-password", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null } });
+
+    const response = await updateSession(makeRequest("/forgot-password"));
+
+    expect(response.headers.get("location")).toBeNull();
+  });
+
+  it("redirects an authenticated user away from /forgot-password to /dashboard", async () => {
+    mockGetUser.mockResolvedValue({
+      data: { user: { id: "user-1", email: "a@example.com" } },
+    });
+
+    const response = await updateSession(makeRequest("/forgot-password"));
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toContain("/dashboard");
+  });
+
+  it("redirects a user with NO session away from /reset-password to /forgot-password", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null } });
+
+    const response = await updateSession(makeRequest("/reset-password"));
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toContain("/forgot-password");
+  });
+
+  it("allows a user WITH a session through to /reset-password (recovery session case)", async () => {
+    mockGetUser.mockResolvedValue({
+      data: { user: { id: "user-1", email: "a@example.com" } },
+    });
+
+    const response = await updateSession(makeRequest("/reset-password"));
+
+    // Critically, this must NOT redirect to /dashboard the way other
+    // AUTH_PAGE_PATHS do for an authenticated user - that would break
+    // the password recovery flow, since a recovery session is
+    // indistinguishable from a normal session at this level.
+    expect(response.headers.get("location")).toBeNull();
+  });
 });

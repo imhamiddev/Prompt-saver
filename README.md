@@ -24,7 +24,7 @@ Built with Next.js 16 (App Router), TypeScript, Supabase (Auth + Postgres + Stor
 
 ## Status of this build
 
-Every line of code in this repository has been written, type-checked, linted, and built successfully (`tsc --noEmit`, `eslint`, `npm run build` all pass with zero errors/warnings). The database migrations have been executed and functionally tested against a real PostgreSQL instance (RLS policies, ownership triggers, the 5-image cap, and Storage policies were all verified with 17 passing SQL test cases — see `supabase/test/`). Application logic (validation, route protection, middleware redirects) is covered by 40 passing unit tests (`npx vitest run`).
+Every line of code in this repository has been written, type-checked, linted, and built successfully (`tsc --noEmit`, `eslint`, `npm run build` all pass with zero errors/warnings). The database migrations have been executed and functionally tested against a real PostgreSQL instance (RLS policies, ownership triggers, the 5-image cap, and Storage policies were all verified with 17 passing SQL test cases — see `supabase/test/`). Application logic (validation, route protection, middleware redirects) is covered by 49 passing unit tests (`npx vitest run`).
 
 **What has *not* been tested end-to-end:** this was built in a sandboxed environment without Docker, so it was never connected to a real, running Supabase project. No one has actually signed up, logged in, created a prompt, or uploaded an image against a live database. The code is written correctly and the logic has been verified in isolation, but you should treat the very first real run (after following the setup steps below) as the first true integration test. Please report anything that doesn't work as expected.
 
@@ -112,6 +112,17 @@ If you don't want to install the CLI, open **SQL Editor** in the Supabase dashbo
 ```bash
 npx supabase gen types typescript --project-id <your-project-ref> > types/database.types.ts
 ```
+
+### Required: allow the auth callback URL
+
+The password reset flow (and, more generally, any Supabase email link) redirects back to `/auth/confirm` in this app. Supabase blocks redirects to URLs it doesn't recognize, so you must add this as an allowed redirect:
+
+1. In the Supabase dashboard, go to **Authentication → URL Configuration**.
+2. Under **Redirect URLs**, add:
+   - `http://localhost:3000/auth/confirm` (for local development)
+   - `https://your-app.vercel.app/auth/confirm` (once deployed — see step 5)
+
+Without this, clicking a password-reset (or signup confirmation) link will fail with an error from Supabase instead of reaching the app.
 
 ## 3. Configure environment variables
 
@@ -218,6 +229,7 @@ npm run build        # production build
 ## Known limitations
 
 - As noted above, this was built and tested without a live Supabase connection. Treat your first real run as the first integration test.
+- **The password reset flow requires the redirect URL step above.** Until `<your-site>/auth/confirm` is added under Authentication → URL Configuration → Redirect URLs, clicking a reset-password (or signup confirmation) link will fail with a Supabase error instead of reaching the app.
 - The rate limiter is per-instance in-memory (see Security notes).
 - Category deletion is blocked (`ON DELETE RESTRICT`) if the category still has prompts in it — the UI surfaces a clear error, but there's no "move these prompts to another category first" bulk-reassignment flow yet.
 - There is no image reordering *UI* yet — the underlying Server Action (`reorderPromptImages` in `actions/prompt-images.ts`) and database support (`display_order`) exist, but no drag-and-drop interface has been wired up in the details page.

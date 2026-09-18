@@ -3,7 +3,13 @@ import { NextResponse, type NextRequest } from "next/server";
 import type { Database } from "@/types/database.types";
 
 const PROTECTED_PREFIXES = ["/dashboard", "/prompts", "/account"];
-const AUTH_PAGE_PATHS = ["/login", "/register", "/verify-email"];
+const AUTH_PAGE_PATHS = ["/login", "/register", "/verify-email", "/forgot-password"];
+// /reset-password is intentionally NOT in either list above: it needs a
+// session to be useful (set by clicking the recovery email link, via
+// app/auth/confirm/route.ts), but must not bounce an already-authenticated
+// user back to /dashboard the way AUTH_PAGE_PATHS does - that would break
+// the recovery flow, since verifyOtp({ type: "recovery" }) creates a real,
+// indistinguishable-at-this-level session. It gets its own check below.
 
 /**
  * Refreshes the Supabase auth session on every request and enforces route
@@ -59,6 +65,18 @@ export async function updateSession(request: NextRequest) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/login";
     redirectUrl.searchParams.set("redirectTo", pathname);
+    return NextResponse.redirect(redirectUrl);
+  }
+
+  // /reset-password requires *some* session (set by the recovery link),
+  // but is deliberately excluded from AUTH_PAGE_PATHS above so it does
+  // not bounce that same session back to /dashboard. A user with no
+  // session at all landing here (an expired/reused link, or direct
+  // navigation) is sent to request a fresh link instead.
+  if (!user && pathname.startsWith("/reset-password")) {
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = "/forgot-password";
+    redirectUrl.search = "";
     return NextResponse.redirect(redirectUrl);
   }
 

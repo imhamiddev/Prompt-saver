@@ -8,6 +8,8 @@ import {
   loginSchema,
   registerSchema,
   resendConfirmationEmailSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema,
 } from "@/lib/validations/auth";
 import { checkRateLimit } from "@/lib/rate-limit";
 
@@ -178,6 +180,102 @@ export async function login(
   const redirectTo = formData.get("redirectTo");
   revalidatePath("/", "layout");
   redirect(typeof redirectTo === "string" && redirectTo ? redirectTo : "/dashboard");
+}
+
+/**
+ * Sends a password-reset link to the given email (spec: account recovery).
+ * Always returns a generic success message regardless of whether the
+ * email is registered, so this can't be used to enumerate accounts
+ * (spec 28: no user enumeration).
+ */
+export async function forgotPassword(
+  _prevState: AuthActionResult,
+  formData: FormData,
+): Promise<AuthActionResult> {
+  const parsed = forgotPasswordSchema.safeParse({
+    email: formData.get("email"),
+  });
+
+  if (!parsed.success) {
+    return {
+      error: "Please fix the errors below.",
+      fieldErrors: parsed.error.flatten().fieldErrors,
+    };
+  }
+
+  // Tight limit: this triggers an outbound email and is a classic target
+  // for abuse (mass password-reset spam against one address).
+  const ip = await getClientIp();
+  const { allowed } = checkRateLimit(`forgot-password:${ip}:${parsed.data.email}`, {
+    max: 3,
+    windowMs: 15 * 60 * 1000,
+  });
+  if (!allowed) {
+    return { error: "Too many attempts. Please wait a few minutes and try again." };
+  }
+
+  const supabase = await createClient();
+  const siteUrl = await getSiteUrl();
+  const { error } = await supabase.auth.resetPasswordForEmail(
+    parsed.data.email,
+    {
+      redirectTo: `${siteUrl}/auth/confirm?type=recovery&next=/reset-password`,
+    },
+  );
+
+  // Deliberately ignore the error content here (beyond logging it): a
+  // "user not found" style error must not be surfaced, or this endpoint
+  // becomes a way to check which emails have an account.
+  if (error) {
+    console.error("forgotPassword error:", error.message);
+  }
+
+  return { error: null };
+}
+
+/**
+ * Sets a new password. Only works when the user has an active recovery
+ * session, which they get by clicking the link from forgotPassword's
+ * email (exchanged for a session by app/auth/confirm/route.ts).
+ */
+export async function resetPassword(
+  _prevState: AuthActionResult,
+  formData: FormData,
+): Promise<AuthActionResult> {
+  const parsed = resetPasswordSchema.safeParse({
+    password: formData.get("password"),
+    confirmPassword: formData.get("confirmPassword"),
+  });
+
+  if (!parsed.success) {
+    return {
+      error: "Please fix the errors below.",
+      fieldErrors: parsed.error.flatten().fieldErrors,
+    };
+  }
+
+  const supabase = await createClient();
+
+  // Without an active (recovery) session, updateUser has nothing to
+  // update - guard explicitly so we can show a clear message instead of
+  // a confusing generic error.
+  const { data: userData } = await supabase.auth.getUser();
+  if (!userData.user) {
+    return {
+      error: "Your password reset link has expired. Please request a new one.",
+    };
+  }
+
+  const { error } = await supabase.auth.updateUser({
+    password: parsed.data.password,
+  });
+
+  if (error) {
+    return { error: friendlyAuthError(error.message) };
+  }
+
+  revalidatePath("/", "layout");
+  redirect("/dashboard");
 }
 
 /**
