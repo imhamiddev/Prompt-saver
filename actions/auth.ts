@@ -7,8 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import {
   loginSchema,
   registerSchema,
-  verifyOtpSchema,
-  resendOtpSchema,
+  resendConfirmationEmailSchema,
 } from "@/lib/validations/auth";
 import { checkRateLimit } from "@/lib/rate-limit";
 
@@ -61,6 +60,14 @@ export async function register(
   const { error } = await supabase.auth.signUp({
     email: parsed.data.email,
     password: parsed.data.password,
+    options: {
+      // Supabase's built-in Confirm Signup email will contain a link to
+      // this URL with the necessary tokens attached; Supabase's own
+      // /auth/v1/verify endpoint handles the token exchange before
+      // redirecting here, so App Router doesn't need its own callback
+      // route for this flow.
+      emailRedirectTo: `${await getSiteUrl()}/dashboard`,
+    },
   });
 
   if (error) {
@@ -69,67 +76,30 @@ export async function register(
     return { error: friendlyAuthError(error.message) };
   }
 
-  // With email OTP confirmation enabled (see README for the Supabase
-  // dashboard template change this requires), signUp does not return an
-  // active session yet - the user must enter the 6-digit code emailed to
-  // them before they have one. Send them to that step next rather than
-  // straight to the dashboard.
+  // signUp does not return an active session when email confirmation is
+  // required (the default) - the user must click the link Supabase just
+  // emailed them before they have one. Send them to a simple
+  // "check your email" page rather than the dashboard.
   revalidatePath("/", "layout");
   redirect(`/verify-email?email=${encodeURIComponent(parsed.data.email)}`);
 }
 
-/**
- * Verifies the 6-digit OTP code emailed during registration and, on
- * success, completes sign-in (Supabase issues a session at this point).
- */
-export async function verifyRegistrationOtp(
-  _prevState: AuthActionResult,
-  formData: FormData,
-): Promise<AuthActionResult> {
-  const parsed = verifyOtpSchema.safeParse({
-    email: formData.get("email"),
-    token: formData.get("token"),
-  });
-
-  if (!parsed.success) {
-    return {
-      error: "Please fix the errors below.",
-      fieldErrors: parsed.error.flatten().fieldErrors,
-    };
-  }
-
-  const ip = await getClientIp();
-  const { allowed } = checkRateLimit(`verify-otp:${ip}:${parsed.data.email}`, {
-    max: 10,
-    windowMs: 15 * 60 * 1000,
-  });
-  if (!allowed) {
-    return { error: "Too many attempts. Please try again in a few minutes." };
-  }
-
-  const supabase = await createClient();
-  const { error } = await supabase.auth.verifyOtp({
-    email: parsed.data.email,
-    token: parsed.data.token,
-    type: "email",
-  });
-
-  if (error) {
-    return { error: friendlyOtpError(error.message) };
-  }
-
-  revalidatePath("/", "layout");
-  redirect("/dashboard");
+async function getSiteUrl(): Promise<string> {
+  const headerList = await headers();
+  const host = headerList.get("host");
+  const protocol = host?.startsWith("localhost") ? "http" : "https";
+  return host ? `${protocol}://${host}` : "http://localhost:3000";
 }
 
 /**
- * Re-sends the signup OTP code, for the "didn't get a code?" link.
+ * Re-sends the signup confirmation email, for the "resend the email" button
+ * on the /verify-email page.
  */
-export async function resendRegistrationOtp(
+export async function resendConfirmationEmail(
   _prevState: AuthActionResult,
   formData: FormData,
 ): Promise<AuthActionResult> {
-  const parsed = resendOtpSchema.safeParse({ email: formData.get("email") });
+  const parsed = resendConfirmationEmailSchema.safeParse({ email: formData.get("email") });
 
   if (!parsed.success) {
     return { error: "Invalid email." };
@@ -140,7 +110,7 @@ export async function resendRegistrationOtp(
   // email-sending rate limit, shared across the whole project, is very
   // low on the default/free tier - see README).
   const ip = await getClientIp();
-  const { allowed } = checkRateLimit(`resend-otp:${ip}:${parsed.data.email}`, {
+  const { allowed } = checkRateLimit(`resend-confirmation:${ip}:${parsed.data.email}`, {
     max: 3,
     windowMs: 15 * 60 * 1000,
   });
@@ -155,7 +125,7 @@ export async function resendRegistrationOtp(
   });
 
   if (error) {
-    return { error: friendlyOtpError(error.message) };
+    return { error: friendlyAuthError(error.message) };
   }
 
   return { error: null };
@@ -218,23 +188,6 @@ export async function logout(): Promise<void> {
   await supabase.auth.signOut();
   revalidatePath("/", "layout");
   redirect("/login");
-}
-
-/**
- * Maps Supabase Auth OTP-related error messages to user-friendly text.
- */
-function friendlyOtpError(message: string): string {
-  const normalized = message.toLowerCase();
-
-  if (normalized.includes("expired") || normalized.includes("invalid")) {
-    return "That code is incorrect or has expired. Request a new one and try again.";
-  }
-  if (normalized.includes("rate limit") || normalized.includes("too many")) {
-    return "Too many attempts. Please wait a few minutes and try again.";
-  }
-
-  console.error("OTP action error:", message);
-  return "Something went wrong. Please try again.";
 }
 
 /**

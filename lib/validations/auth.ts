@@ -40,19 +40,6 @@ export const loginSchema = z.object({
 
 export type LoginInput = z.infer<typeof loginSchema>;
 
-export const otpCodeSchema = z
-  .string()
-  .trim()
-  .length(6, "Enter the 6-digit code.")
-  .regex(/^\d{6}$/, "The code must be 6 digits.");
-
-export const verifyOtpSchema = z.object({
-  email: emailSchema,
-  token: otpCodeSchema,
-});
-
-export type VerifyOtpInput = z.infer<typeof verifyOtpSchema>;
-
-export const resendOtpSchema = z.object({
+export const resendConfirmationEmailSchema = z.object({
   email: emailSchema,
 });

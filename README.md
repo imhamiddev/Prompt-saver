@@ -24,7 +24,7 @@ Built with Next.js 16 (App Router), TypeScript, Supabase (Auth + Postgres + Stor
 
 ## Status of this build
 
-Every line of code in this repository has been written, type-checked, linted, and built successfully (`tsc --noEmit`, `eslint`, `npm run build` all pass with zero errors/warnings). The database migrations have been executed and functionally tested against a real PostgreSQL instance (RLS policies, ownership triggers, the 5-image cap, and Storage policies were all verified with 17 passing SQL test cases — see `supabase/test/`). Application logic (validation, route protection, middleware redirects) is covered by 46 passing unit tests (`npx vitest run`).
+Every line of code in this repository has been written, type-checked, linted, and built successfully (`tsc --noEmit`, `eslint`, `npm run build` all pass with zero errors/warnings). The database migrations have been executed and functionally tested against a real PostgreSQL instance (RLS policies, ownership triggers, the 5-image cap, and Storage policies were all verified with 17 passing SQL test cases — see `supabase/test/`). Application logic (validation, route protection, middleware redirects) is covered by 40 passing unit tests (`npx vitest run`).
 
 **What has *not* been tested end-to-end:** this was built in a sandboxed environment without Docker, so it was never connected to a real, running Supabase project. No one has actually signed up, logged in, created a prompt, or uploaded an image against a live database. The code is written correctly and the logic has been verified in isolation, but you should treat the very first real run (after following the setup steps below) as the first true integration test. Please report anything that doesn't work as expected.
 
@@ -129,24 +129,31 @@ SUPABASE_SERVICE_ROLE_KEY=           # optional, leave blank unless you need it
 
 The anon key is safe to expose to the browser — every table has Row Level Security enabled, so access control is enforced by Postgres itself, not by keeping this key secret. The service role key is different: it bypasses RLS entirely and must never be exposed to the browser or committed anywhere. This app doesn't require it for normal operation.
 
-### Email confirmation: switch the template to a 6-digit code (OTP)
+### Email confirmation (link-based)
 
-This app's registration flow expects Supabase to email a **6-digit code** rather than a confirmation link — the user enters that code on the `/verify-email` page. By default, a fresh Supabase project's "Confirm signup" email template contains a `{{ .ConfirmationURL }}` link instead. Switch it to a code:
+By default, and as this app is built, Supabase emails a **confirmation link** (`{{ .ConfirmationURL }}`) when someone registers — the user clicks it, Supabase verifies them, and they land back on `/dashboard`. No dashboard configuration is required for this to work; it's the default behavior.
 
-1. In the Supabase dashboard, go to **Authentication → Emails → Confirm signup**.
-2. Replace the template body's link with the token variable instead, for example:
-   ```html
-   <h2>Confirm your signup</h2>
-   <p>Enter this code to finish creating your account:</p>
-   <h1>{{ .Token }}</h1>
-   ```
-3. Save. That's it — no other configuration is needed; `{{ .Token }}` is the same 6-digit code `supabase.auth.verifyOtp({ type: "email" })` expects, and this app's `/register` → `/verify-email` flow already calls that.
+### Using nicer email templates (optional)
 
-If you'd rather keep the default link-based confirmation instead of OTP, you can skip this step — but then `actions/auth.ts`'s `register` function (which redirects to `/verify-email`) and the `/verify-email` page would need to be reverted to redirect straight to `/dashboard` after `signUp`, since there'd be no code to enter.
+Supabase's default email templates are plain and unstyled. This repo includes designed, email-client-safe HTML versions you can paste in as-is:
 
-### Email sending limits (Supabase's free tier)
+- `supabase/email-templates/confirm-signup.html` → paste into **Authentication → Emails → Confirm signup**
+- `supabase/email-templates/reset-password.html` → paste into **Authentication → Emails → Reset password**
 
-Supabase's built-in email sender (used for the OTP above) is rate-limited: **3 emails per hour** by default, shared across your whole project, on the default/shared SMTP. This is fine for trying the app out, but will feel restrictive with real signups. For anything beyond testing, configure a custom SMTP provider under **Authentication → SMTP Settings** — Resend, SendGrid, and Mailgun all have generous free tiers and work on Supabase's free plan too.
+**Important — as of June 2026, Supabase free-tier projects using the default (built-in) email sender can no longer edit these templates at all.** The dashboard fields for subject/body are read-only until you either configure a custom SMTP provider or upgrade to a paid plan. Projects created before June 3, 2026 are grandfathered and keep full editing access on the default sender. If your dashboard fields are greyed out, this is why.
+
+To unlock template editing on a new free-tier project, set up a free custom SMTP provider — [Resend](https://resend.com) works well and its free tier (3,000 emails/day) is more than enough for this app:
+
+1. Create a Resend account and generate an API key (**Resend dashboard → API Keys**). For quick testing you can send from `onboarding@resend.dev` with no domain setup; to send to addresses other than your own Resend account email, verify your own domain under **Resend → Domains** instead.
+2. In Supabase: **Authentication → Emails → SMTP Settings**, enable **Custom SMTP**, and fill in:
+   - Host: `smtp.resend.com`
+   - Port: `465`
+   - Username: `resend`
+   - Password: the Resend API key from step 1
+   - Sender email / name: whatever you'd like users to see
+3. Save. The Confirm signup / Reset password template fields should now be editable — paste in the HTML files above.
+
+If you'd rather not deal with SMTP at all, that's fine too — the app works correctly either way; you'll just be stuck with Supabase's plain default email design (and, on the free tier, the 2-3 emails/hour cap) until you configure it.
 
 ## 4. Run locally
 
@@ -211,7 +218,6 @@ npm run build        # production build
 ## Known limitations
 
 - As noted above, this was built and tested without a live Supabase connection. Treat your first real run as the first integration test.
-- **Email OTP requires the dashboard template change described above.** Until you make that change, Supabase will email a confirmation *link* while this app's UI expects a 6-digit *code* — the two won't match, so registration will appear to send an email but the code field won't work until the template is switched.
 - The rate limiter is per-instance in-memory (see Security notes).
 - Category deletion is blocked (`ON DELETE RESTRICT`) if the category still has prompts in it — the UI surfaces a clear error, but there's no "move these prompts to another category first" bulk-reassignment flow yet.
 - There is no image reordering *UI* yet — the underlying Server Action (`reorderPromptImages` in `actions/prompt-images.ts`) and database support (`display_order`) exist, but no drag-and-drop interface has been wired up in the details page.

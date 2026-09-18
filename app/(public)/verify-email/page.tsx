@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { VerifyEmailForm } from "./verify-email-form";
+import { VerifyEmailNotice } from "./verify-email-notice";
 
 export const metadata: Metadata = {
   title: "Verify your email — Prompt Manager",
@@ -13,7 +13,7 @@ export default async function VerifyEmailPage({
 }) {
   const { email } = await searchParams;
 
-  // This page only makes sense with an email to verify - if someone lands
+  // This page only makes sense with an email to show - if someone lands
   // here directly with no query param, send them back to start signup.
   if (!email) {
     redirect("/register");
@@ -21,7 +21,7 @@ export default async function VerifyEmailPage({
 
   return (
     <main className="flex min-h-svh items-center justify-center p-6">
-      <VerifyEmailForm email={email} />
+      <VerifyEmailNotice email={email} />
     </main>
   );
 }
