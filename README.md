@@ -1,12 +1,22 @@
+[🇮🇷 فارسی](./README.fa.md) | 🇬🇧 English
+
 <div align="center">
 
 # 🧠 Prompt Saver
 
 **A modern, private library for saving, organizing, searching, and reusing your best AI prompts.**
 
-Built with Next.js 16, TypeScript, React 19, and Supabase.
+Prompts · Categories · Images · Full-text search · Dark mode
 
-[🇮🇷 مشاهده نسخه فارسی](./README.fa.md) · [🌐 Live Demo](https://prompt-saver-cyan.vercel.app) · [🐛 Report a Bug](https://github.com/imhamiddev/Prompt-saver/issues)
+[![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org)
+[![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
+[![React](https://img.shields.io/badge/React-19-149ECA?logo=react&logoColor=white)](https://react.dev)
+[![Supabase](https://img.shields.io/badge/Supabase-Postgres%20%7C%20Auth%20%7C%20Storage-3ECF8E?logo=supabase&logoColor=white)](https://supabase.com)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind-v4-06B6D4?logo=tailwindcss&logoColor=white)](https://tailwindcss.com)
+[![Deploy](https://img.shields.io/badge/Deploy-Vercel-black?logo=vercel)](https://vercel.com)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](#-license)
+
+[Overview](#-about-the-project) • [Features](#-features) • [Architecture](#-project-structure) • [Setup Guide](#-getting-started) • [Security](#-security) • [FAQ](#-faq)
 
 </div>
 
@@ -30,6 +40,7 @@ Built with Next.js 16, TypeScript, React 19, and Supabase.
 - [Testing](#-testing)
 - [Security](#-security)
 - [Known Limitations](#-known-limitations)
+- [FAQ](#-faq)
 - [Contributing](#-contributing)
 - [License](#-license)
 
@@ -46,7 +57,8 @@ Built with Next.js 16, TypeScript, React 19, and Supabase.
 
 It's built for **developers, creators, marketers, and everyday AI power-users** who want faster, more reliable access to the prompts that actually work for them.
 
-> ⚠️ **Build status note:** This project has been fully written, type-checked, linted, and built successfully, and its database logic has been verified with automated tests. However, it has **not yet been run end-to-end against a live Supabase project** by its original developer. Treat your first real run after setup as the first live integration test, and please [open an issue](https://github.com/imhamiddev/Prompt-saver/issues) if anything doesn't behave as expected.
+> [!NOTE]
+> **Build status:** This project has been fully written, type-checked, linted, and built successfully, and its database logic has been verified with automated tests. However, it has **not yet been run end-to-end against a live Supabase project** by its original developer. Treat your first real run after setup as the first live integration test, and please [open an issue](https://github.com/imhamiddev/Prompt-saver/issues) if anything doesn't behave as expected.
 
 ---
 
@@ -86,6 +98,22 @@ It's built for **developers, creators, marketers, and everyday AI power-users** 
 
 ## 📁 Project Structure
 
+### Request flow
+
+```mermaid
+flowchart LR
+    U[User] -- signs up / logs in --> AUTH[Supabase Auth]
+    U -- create / edit prompt --> SA[Server Actions]
+    SA -- validated by --> ZOD[Zod schemas]
+    SA -- writes --> DB[(Postgres + RLS)]
+    U -- uploads image --> COMP[Client-side compression]
+    COMP -- upload --> ST[Supabase Storage]
+    ST -- signed URL, 1h --> U
+    DB --> UI[Dashboard / Search / Categories]
+```
+
+### Folder layout
+
 ```text
 app/
   (public)/              → landing, login, register (unauthenticated routes)
@@ -119,13 +147,13 @@ Follow these steps in order — from zero to a fully running local instance.
 
 ### Prerequisites
 
-Make sure you have the following installed:
-
-- **[Node.js](https://nodejs.org/)** 18.18 or later
-- **[npm](https://www.npmjs.com/)** (comes with Node.js)
-- A free **[Supabase](https://supabase.com/)** account
-- (Optional) A free **[Vercel](https://vercel.com/)** account for deployment
-- (Optional) A free **[Resend](https://resend.com/)** account for custom email delivery
+| Requirement | Notes |
+|---|---|
+| **[Node.js](https://nodejs.org/)** 18.18+ | Required to run and build the app |
+| **[npm](https://www.npmjs.com/)** | Comes bundled with Node.js |
+| A free **[Supabase](https://supabase.com/)** account | Postgres, Auth, and Storage all in one |
+| A free **[Vercel](https://vercel.com/)** account | Optional — only needed for deployment |
+| A free **[Resend](https://resend.com/)** account | Optional — only needed for custom email templates |
 
 ---
 
@@ -211,6 +239,19 @@ NEXT_PUBLIC_SUPABASE_URL=https://xxxxx.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
 SUPABASE_SERVICE_ROLE_KEY=           # optional, leave blank unless you need it
 ```
+
+<details>
+<summary><strong>Click to expand the full variable list</strong></summary>
+
+<br>
+
+| Variable | Source | Required |
+|---|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase → Project Settings → API | ✅ Yes |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase → Project Settings → API | ✅ Yes |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase → Project Settings → API | ⛔ Optional |
+
+</details>
 
 > 💡 The **anon key** is safe to expose to the browser — every table has Row Level Security enabled, so Postgres itself enforces access control. The **service role key** bypasses RLS entirely and must **never** be exposed to the browser or committed to the repository.
 
@@ -304,19 +345,16 @@ Two independent layers of testing were performed during development:
 
 **1. SQL functional tests** (`supabase/test/`) — a local-only harness that stubs Supabase's platform schema so migrations can be tested against a real PostgreSQL instance. **Not part of the app** — you can safely ignore or delete this folder.
 
-**2. Unit tests** (Vitest) — cover validation schemas and auth/route-protection middleware:
+**2. Unit tests** (Vitest) — cover validation schemas and auth/route-protection middleware.
 
-```bash
-npx vitest run
-```
+**3. Static checks** — should always pass cleanly.
 
-**3. Static checks** — should always pass cleanly:
-
-```bash
-npx tsc --noEmit   # type-check
-npx eslint .        # lint
-npm run build       # production build
-```
+| Command | Description |
+|---|---|
+| `npx vitest run` | Run the unit test suite |
+| `npx tsc --noEmit` | Type-check the whole project |
+| `npx eslint .` | Lint the codebase |
+| `npm run build` | Production build |
 
 ---
 
@@ -345,6 +383,26 @@ npm run build       # production build
 
 ---
 
+## ❓ FAQ
+
+**Why does the anon key get committed to `.env.example` while the service role key stays blank?**
+
+Because they serve completely different purposes. The anon key is designed to be public — it's what the browser uses, and Postgres Row Level Security is what actually stops unauthorized access. The service role key bypasses RLS entirely, so it must never be exposed or hardcoded anywhere.
+
+**Do I need the service role key at all?**
+
+No. Normal operation of the app — sign-up, login, creating prompts, uploading images — never touches it. It's only there for optional server-side admin scripts you might write yourself.
+
+**Why does the password reset link look so different from a normal Supabase link?**
+
+It's intentional — see [Why the reset-password link looks unusual](#why-the-reset-password-link-looks-unusual). It protects the single-use reset token from being silently consumed by email security scanners before the user clicks it themselves.
+
+**Can I use this without setting up custom SMTP?**
+
+Yes. The app works fully on Supabase's default email sender — you'll just get plain, unstyled emails and a lower hourly sending cap on the free tier.
+
+---
+
 ## 🤝 Contributing
 
 Contributions, issues, and feature requests are welcome!
@@ -360,7 +418,9 @@ Feel free to check the [issues page](https://github.com/imhamiddev/Prompt-saver/
 
 ## 📄 License
 
-This project currently has no explicit license file. Please contact the repository owner ([@imhamiddev](https://github.com/imhamiddev)) before reusing this code in your own projects.
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+
+This project is licensed under the **MIT License** — you're free to use, copy, modify, merge, publish, distribute, and even sell copies of it, as long as the original copyright notice is included. See the [`LICENSE`](./LICENSE) file for the full text.
 
 ---
 
