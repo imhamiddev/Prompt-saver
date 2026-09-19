@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export const metadata: Metadata = {
   title: "Prompt Manager — Your private library of AI prompts",
@@ -16,6 +17,7 @@ export default function LandingPage() {
           Prompt Manager
         </span>
         <nav className="flex items-center gap-2">
+          <ThemeToggle />
           <Button variant="ghost" asChild>
             <Link href="/login">Log in</Link>
           </Button>

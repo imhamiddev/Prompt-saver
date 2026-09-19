@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { logout } from "@/actions/auth";
 import { SubmitButton } from "@/components/auth/submit-button";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export default async function AppLayout({
   children,
@@ -28,6 +29,7 @@ export default async function AppLayout({
           <span className="hidden text-sm text-muted-foreground sm:inline">
             {data.user.email}
           </span>
+          <ThemeToggle />
           <form action={logout}>
             <SubmitButton variant="outline" size="sm" pendingText="Logging out...">
               Log out

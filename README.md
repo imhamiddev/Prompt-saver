@@ -24,7 +24,7 @@ Built with Next.js 16 (App Router), TypeScript, Supabase (Auth + Postgres + Stor
 
 ## Status of this build
 
-Every line of code in this repository has been written, type-checked, linted, and built successfully (`tsc --noEmit`, `eslint`, `npm run build` all pass with zero errors/warnings). The database migrations have been executed and functionally tested against a real PostgreSQL instance (RLS policies, ownership triggers, the 5-image cap, and Storage policies were all verified with 17 passing SQL test cases — see `supabase/test/`). Application logic (validation, route protection, middleware redirects) is covered by 50 passing unit tests (`npx vitest run`).
+Every line of code in this repository has been written, type-checked, linted, and built successfully (`tsc --noEmit`, `eslint`, `npm run build` all pass with zero errors/warnings). The database migrations have been executed and functionally tested against a real PostgreSQL instance (RLS policies, ownership triggers, the 5-image cap, and Storage policies were all verified with 17 passing SQL test cases — see `supabase/test/`). Application logic (validation, route protection, middleware redirects) is covered by 52 passing unit tests (`npx vitest run`).
 
 **What has *not* been tested end-to-end:** this was built in a sandboxed environment without Docker, so it was never connected to a real, running Supabase project. No one has actually signed up, logged in, created a prompt, or uploaded an image against a live database. The code is written correctly and the logic has been verified in isolation, but you should treat the very first real run (after following the setup steps below) as the first true integration test. Please report anything that doesn't work as expected.
 
@@ -38,6 +38,8 @@ Every line of code in this repository has been written, type-checked, linted, an
 - **Supabase**: Postgres, Auth, Storage, Row Level Security
 - **Zod** + **React Hook Form** conventions for validation
 - **nextjs-toploader** for the top-of-page route-change progress bar
+- **next-themes** for light/dark/system theme switching
+- **browser-image-compression** for client-side image optimization before upload
 - **Vitest** for unit tests
 
 ## Project structure
@@ -232,6 +234,7 @@ npm run build        # production build
 - **Cross-table ownership** (e.g. a prompt's `category_id` must belong to the same user) is enforced by database triggers, since a plain foreign key can't express that.
 - **The 5-image-per-prompt limit** is enforced in three places: the upload UI (disables the button), the Server Action (checks before uploading), and a database trigger (the actual backstop).
 - **Images are private.** The `prompt-images` Storage bucket is not public; the app generates short-lived signed URLs (1 hour) server-side for each image, and Storage-level RLS policies additionally ensure a user can only read/write objects under their own `{user_id}/...` folder.
+- **Images are compressed client-side before upload.** `lib/compress-image.ts` resizes/re-encodes images larger than ~4MB (down to a max of 2560px on the longest side, targeting the bucket's 5MB cap) in a Web Worker before the file ever reaches the server — this is a UX/bandwidth optimization, not a security control. The bucket's own `file_size_limit`/`allowed_mime_types` (see migrations) remain the actual server-side enforcement regardless of what the client sends or whether compression succeeded. GIFs are left untouched to avoid flattening animations.
 - **Error messages shown to users are generic.** Raw Postgres/Supabase error text is logged server-side (`console.error`) but never sent to the client, to avoid leaking internal details.
 - **Rate limiting** on login/register is implemented as a simple in-memory limiter (`lib/rate-limit.ts`) as defense-in-depth alongside Supabase Auth's own built-in rate limiting. On serverless platforms like Vercel, each function instance has its own memory, so this limiter is per-instance, not global — it raises the bar but isn't a hard guarantee under distributed abuse. For a stricter guarantee, swap it for a shared store (e.g. Upstash Redis) behind the same `checkRateLimit` function signature.
 - **Security headers** (`X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`) are set in `next.config.ts`.
@@ -244,3 +247,4 @@ npm run build        # production build
 - The rate limiter is per-instance in-memory (see Security notes).
 - Category deletion is blocked (`ON DELETE RESTRICT`) if the category still has prompts in it — the UI surfaces a clear error, but there's no "move these prompts to another category first" bulk-reassignment flow yet.
 - There is no image reordering *UI* yet — the underlying Server Action (`reorderPromptImages` in `actions/prompt-images.ts`) and database support (`display_order`) exist, but no drag-and-drop interface has been wired up in the details page.
+- Light/dark/system theme switching (`next-themes`) is wired up and renders correctly server-side (verified via HTTP), but the actual toggle interaction and persistence across reloads relies on browser `localStorage`, which wasn't exercised in a real browser in this sandboxed environment — worth a quick manual click-through after deploying.
