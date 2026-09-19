@@ -37,6 +37,7 @@ Every line of code in this repository has been written, type-checked, linted, an
 - **shadcn/ui** (new-york style, neutral base color) + Radix primitives
 - **Supabase**: Postgres, Auth, Storage, Row Level Security
 - **Zod** + **React Hook Form** conventions for validation
+- **nextjs-toploader** for the top-of-page route-change progress bar
 - **Vitest** for unit tests
 
 ## Project structure
@@ -143,6 +144,10 @@ The anon key is safe to expose to the browser — every table has Row Level Secu
 ### Email confirmation (link-based)
 
 By default, and as this app is built, Supabase emails a **confirmation link** (`{{ .ConfirmationURL }}`) when someone registers — the user clicks it, Supabase verifies them, and they land back on `/dashboard`. No dashboard configuration is required for this to work; it's the default behavior.
+
+### Link expiry time
+
+Both the signup confirmation link and the password-reset link share one setting: **Authentication → Sign In / Providers → Email → Email OTP Expiration** (in seconds; default `3600` = 1 hour, configurable from a few minutes up to 1 week). A short expiry (e.g. 2 minutes) is tempting for "security," but in practice it's a poor trade-off here: combined with the email-prefetching issue described below (where the link can be silently opened once by a scanner before the user ever sees it), a very short window meaningfully increases the chance a legitimate user's own click fails too. 15–30 minutes is a reasonable balance for this app.
 
 ### Using nicer email templates (optional)
 

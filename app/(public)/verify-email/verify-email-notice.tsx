@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Mail } from "lucide-react";
 import { resendConfirmationEmail, type AuthActionResult } from "@/actions/auth";
 import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/auth/submit-button";
 import {
   Card,
   CardContent,
@@ -43,9 +44,9 @@ export function VerifyEmailNotice({ email }: { email: string }) {
           }}
         >
           <input type="hidden" name="email" value={email} />
-          <Button type="submit" variant="outline" size="sm">
+          <SubmitButton variant="outline" size="sm" pendingText="Sending...">
             Resend the email
-          </Button>
+          </SubmitButton>
         </form>
 
         {justResent && !resendState.error && (

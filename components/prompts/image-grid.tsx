@@ -2,7 +2,8 @@
 
 import Image from "next/image";
 import { useActionState } from "react";
-import { X } from "lucide-react";
+import { useFormStatus } from "react-dom";
+import { Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   deletePromptImage,
@@ -28,6 +29,27 @@ export function ImageGrid({ images }: { images: PromptImageWithUrl[] }) {
   );
 }
 
+function DeleteImageButton() {
+  const { pending } = useFormStatus();
+
+  return (
+    <Button
+      type="submit"
+      variant="destructive"
+      size="icon"
+      disabled={pending}
+      className="size-6 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100"
+      aria-label="Delete image"
+    >
+      {pending ? (
+        <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
+      ) : (
+        <X className="size-3.5" />
+      )}
+    </Button>
+  );
+}
+
 function ImageTile({ image }: { image: PromptImageWithUrl }) {
   const [state, formAction] = useActionState(deletePromptImage, initialState);
 
@@ -50,15 +72,7 @@ function ImageTile({ image }: { image: PromptImageWithUrl }) {
 
       <form action={formAction} className="absolute right-1 top-1">
         <input type="hidden" name="id" value={image.id} />
-        <Button
-          type="submit"
-          variant="destructive"
-          size="icon"
-          className="size-6 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100"
-          aria-label="Delete image"
-        >
-          <X className="size-3.5" />
-        </Button>
+        <DeleteImageButton />
       </form>
 
       {state.error && (

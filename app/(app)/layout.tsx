@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { logout } from "@/actions/auth";
-import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/auth/submit-button";
 
 export default async function AppLayout({
   children,
@@ -29,9 +29,9 @@ export default async function AppLayout({
             {data.user.email}
           </span>
           <form action={logout}>
-            <Button variant="outline" size="sm" type="submit">
+            <SubmitButton variant="outline" size="sm" pendingText="Logging out...">
               Log out
-            </Button>
+            </SubmitButton>
           </form>
         </div>
       </header>
