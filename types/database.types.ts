@@ -46,6 +46,7 @@ export type Database = {
           category_id: string;
           title: string;
           prompt_text: string;
+          is_favorite: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -55,6 +56,7 @@ export type Database = {
           category_id: string;
           title: string;
           prompt_text: string;
+          is_favorite?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -64,6 +66,7 @@ export type Database = {
           category_id?: string;
           title?: string;
           prompt_text?: string;
+          is_favorite?: boolean;
           created_at?: string;
           updated_at?: string;
         };

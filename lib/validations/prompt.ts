@@ -37,10 +37,19 @@ export const deletePromptSchema = z.object({
   id: z.string().uuid("Invalid prompt id."),
 });
 
+export const toggleFavoriteSchema = z.object({
+  id: z.string().uuid("Invalid prompt id."),
+  isFavorite: z.boolean(),
+});
+
 // Search/filter/pagination params for the dashboard list (spec 11/20/21).
 export const promptListParamsSchema = z.object({
   q: z.string().trim().max(200).optional(),
   categoryId: z.string().uuid().optional(),
+  favoritesOnly: z
+    .union([z.literal("true"), z.literal("false")])
+    .optional()
+    .transform((v) => v === "true"),
   page: z.coerce.number().int().min(1).default(1),
 });
 

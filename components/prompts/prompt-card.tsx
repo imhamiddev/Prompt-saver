@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CopyButton } from "@/components/prompts/copy-button";
+import { FavoriteButton } from "@/components/prompts/favorite-button";
 import type { PromptWithCategory } from "@/lib/queries/prompts";
 
 export function PromptCard({ prompt }: { prompt: PromptWithCategory }) {
@@ -37,8 +38,14 @@ export function PromptCard({ prompt }: { prompt: PromptWithCategory }) {
         </div>
       )}
 
+      <FavoriteButton
+        promptId={prompt.id}
+        initialIsFavorite={prompt.is_favorite}
+        className="absolute right-1.5 top-1.5 z-10 bg-background/80 backdrop-blur-sm hover:bg-background"
+      />
+
       <CardHeader className="relative z-10 pointer-events-none">
-        <CardTitle className="line-clamp-2">{prompt.title}</CardTitle>
+        <CardTitle className="line-clamp-2 pr-8">{prompt.title}</CardTitle>
         {prompt.category && (
           <Badge variant="secondary" className="w-fit">
             {prompt.category.name}

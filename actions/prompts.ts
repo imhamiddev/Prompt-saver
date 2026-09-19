@@ -7,6 +7,7 @@ import {
   createPromptSchema,
   updatePromptSchema,
   deletePromptSchema,
+  toggleFavoriteSchema,
 } from "@/lib/validations/prompt";
 
 export type PromptActionResult = {
@@ -111,6 +112,49 @@ export async function updatePrompt(
   revalidatePath("/dashboard");
   revalidatePath(`/prompts/${parsed.data.id}`);
   redirect(`/prompts/${parsed.data.id}`);
+}
+
+export type ToggleFavoriteResult = { error: string | null };
+
+/**
+ * Toggles a prompt's favorite/pinned status. Deliberately not built on
+ * useActionState/redirect like the other prompt actions - this is meant
+ * to be called from a small star button with optimistic UI, so it just
+ * returns success/failure and lets the caller manage its own state.
+ */
+export async function toggleFavorite(
+  id: string,
+  isFavorite: boolean,
+): Promise<ToggleFavoriteResult> {
+  const parsed = toggleFavoriteSchema.safeParse({ id, isFavorite });
+  if (!parsed.success) {
+    return { error: "Invalid request." };
+  }
+
+  const supabase = await createClient();
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  if (userError || !userData.user) {
+    return { error: "You must be logged in." };
+  }
+
+  const { data, error } = await supabase
+    .from("prompts")
+    .update({ is_favorite: parsed.data.isFavorite })
+    .eq("id", parsed.data.id)
+    .eq("user_id", userData.user.id)
+    .select("id")
+    .maybeSingle();
+
+  if (error) {
+    return { error: friendlyPromptError(error.message) };
+  }
+  if (!data) {
+    return { error: "Prompt not found." };
+  }
+
+  revalidatePath("/dashboard");
+  revalidatePath(`/prompts/${parsed.data.id}`);
+  return { error: null };
 }
 
 export async function deletePrompt(

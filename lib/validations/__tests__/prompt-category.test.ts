@@ -3,6 +3,7 @@ import {
   createPromptSchema,
   updatePromptSchema,
   promptListParamsSchema,
+  toggleFavoriteSchema,
   PAGE_SIZE,
 } from "../prompt";
 import { createCategorySchema } from "../category";
@@ -114,8 +115,66 @@ describe("promptListParamsSchema", () => {
     expect(result.success).toBe(true);
   });
 
+  it("defaults favoritesOnly to false when absent", () => {
+    const result = promptListParamsSchema.safeParse({});
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.favoritesOnly).toBe(false);
+    }
+  });
+
+  it("parses favoritesOnly=true from a URL search param string", () => {
+    const result = promptListParamsSchema.safeParse({ favoritesOnly: "true" });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.favoritesOnly).toBe(true);
+    }
+  });
+
+  it("treats favoritesOnly=false explicitly as false", () => {
+    const result = promptListParamsSchema.safeParse({ favoritesOnly: "false" });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.favoritesOnly).toBe(false);
+    }
+  });
+
   it("PAGE_SIZE is a sane positive number", () => {
     expect(PAGE_SIZE).toBeGreaterThan(0);
+  });
+});
+
+describe("toggleFavoriteSchema", () => {
+  it("accepts a valid id with true", () => {
+    const result = toggleFavoriteSchema.safeParse({
+      id: "11111111-1111-4111-8111-111111111111",
+      isFavorite: true,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts a valid id with false", () => {
+    const result = toggleFavoriteSchema.safeParse({
+      id: "11111111-1111-4111-8111-111111111111",
+      isFavorite: false,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects a non-uuid id", () => {
+    const result = toggleFavoriteSchema.safeParse({
+      id: "not-a-uuid",
+      isFavorite: true,
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects a non-boolean isFavorite", () => {
+    const result = toggleFavoriteSchema.safeParse({
+      id: "11111111-1111-4111-8111-111111111111",
+      isFavorite: "true",
+    });
+    expect(result.success).toBe(false);
   });
 });
 

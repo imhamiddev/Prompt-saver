@@ -47,6 +47,10 @@ export async function getPrompts(
     query = query.eq("category_id", params.categoryId);
   }
 
+  if (params.favoritesOnly) {
+    query = query.eq("is_favorite", true);
+  }
+
   if (params.q && params.q.length > 0) {
     // Full-text search against the generated search_vector column
     // (title weighted higher than prompt_text - see migration).

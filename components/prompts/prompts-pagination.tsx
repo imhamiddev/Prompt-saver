@@ -32,7 +32,7 @@ export function PromptsPagination({
   totalPages,
 }: {
   basePath: string;
-  currentParams: { q?: string; categoryId?: string };
+  currentParams: { q?: string; categoryId?: string; favoritesOnly?: string };
   page: number;
   totalPages: number;
 }) {

@@ -13,8 +13,8 @@ vi.mock("@supabase/ssr", () => ({
 // Import after the mock is registered.
 const { updateSession } = await import("../middleware");
 
-function makeRequest(pathname: string) {
-  return new NextRequest(new URL(pathname, "http://localhost:3000"));
+function makeRequest(pathAndQuery: string) {
+  return new NextRequest(new URL(pathAndQuery, "http://localhost:3000"));
 }
 
 beforeEach(() => {
@@ -42,6 +42,24 @@ describe("updateSession route protection", () => {
 
     // NextResponse.next() has status 200 and no location header.
     expect(response.headers.get("location")).toBeNull();
+  });
+
+  it("strips the original page's query string from the /login redirect (does not leak it alongside redirectTo)", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null } });
+
+    const response = await updateSession(
+      makeRequest("/dashboard?favoritesOnly=true&q=hello"),
+    );
+
+    expect(response.status).toBe(307);
+    const location = response.headers.get("location")!;
+    const redirectedUrl = new URL(location);
+    // Only redirectTo should be present - the original page's own query
+    // params (favoritesOnly, q) must not leak into the /login URL.
+    expect(Array.from(redirectedUrl.searchParams.keys())).toEqual([
+      "redirectTo",
+    ]);
+    expect(redirectedUrl.searchParams.get("redirectTo")).toBe("/dashboard");
   });
 
   it("redirects an authenticated user away from /login to /dashboard", async () => {

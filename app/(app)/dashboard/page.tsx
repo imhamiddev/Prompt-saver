@@ -4,6 +4,7 @@ import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SearchBar } from "@/components/prompts/search-bar";
 import { CategoryFilter } from "@/components/prompts/category-filter";
+import { FavoritesFilterToggle } from "@/components/prompts/favorites-filter-toggle";
 import { PromptCard } from "@/components/prompts/prompt-card";
 import { PromptsPagination } from "@/components/prompts/prompts-pagination";
 import { getPrompts } from "@/lib/queries/prompts";
@@ -17,18 +18,25 @@ export const metadata: Metadata = {
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; categoryId?: string; page?: string }>;
+  searchParams: Promise<{
+    q?: string;
+    categoryId?: string;
+    favoritesOnly?: string;
+    page?: string;
+  }>;
 }) {
   const rawParams = await searchParams;
   const parsedParams = promptListParamsSchema.safeParse(rawParams);
   const params = parsedParams.success
     ? parsedParams.data
-    : { page: 1 as const };
+    : { page: 1 as const, favoritesOnly: false };
 
   const [categories, { prompts, totalCount, page, totalPages }] =
     await Promise.all([getCategories(), getPrompts(params)]);
 
-  const hasFilters = Boolean(params.q || params.categoryId);
+  const hasFilters = Boolean(
+    params.q || params.categoryId || params.favoritesOnly,
+  );
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-6">
@@ -51,6 +59,7 @@ export default async function DashboardPage({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <SearchBar />
         <CategoryFilter categories={categories} />
+        <FavoritesFilterToggle />
       </div>
 
       {prompts.length === 0 ? (
@@ -64,7 +73,11 @@ export default async function DashboardPage({
           </div>
           <PromptsPagination
             basePath="/dashboard"
-            currentParams={{ q: params.q, categoryId: params.categoryId }}
+            currentParams={{
+              q: params.q,
+              categoryId: params.categoryId,
+              favoritesOnly: params.favoritesOnly ? "true" : undefined,
+            }}
             page={page}
             totalPages={totalPages}
           />

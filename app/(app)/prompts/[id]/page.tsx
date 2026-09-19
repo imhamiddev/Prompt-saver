@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CopyButton } from "@/components/prompts/copy-button";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
+import { FavoriteButton } from "@/components/prompts/favorite-button";
 import { ImageGrid } from "@/components/prompts/image-grid";
 import { ImageUploader } from "@/components/prompts/image-uploader";
 import { deletePrompt } from "@/actions/prompts";
@@ -60,6 +61,10 @@ export default async function PromptDetailsPage({
             )}
           </div>
           <div className="flex shrink-0 items-center gap-2">
+            <FavoriteButton
+              promptId={prompt.id}
+              initialIsFavorite={prompt.is_favorite}
+            />
             <Button variant="outline" size="sm" asChild>
               <Link href={`/prompts/${prompt.id}/edit`}>
                 <Pencil /> Edit
@@ -85,7 +90,12 @@ export default async function PromptDetailsPage({
           <span className="text-sm font-medium text-muted-foreground">
             Prompt text
           </span>
-          <CopyButton text={prompt.prompt_text} />
+          <div className="flex items-center gap-2">
+            <kbd className="hidden rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground sm:inline-block">
+              Ctrl/⌘+C
+            </kbd>
+            <CopyButton text={prompt.prompt_text} enableShortcut />
+          </div>
         </div>
         <pre className="whitespace-pre-wrap break-words font-mono text-sm">
           {prompt.prompt_text}

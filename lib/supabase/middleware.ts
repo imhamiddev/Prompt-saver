@@ -64,6 +64,10 @@ export async function updateSession(request: NextRequest) {
   if (!user && isProtectedPath) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/login";
+    // Clear the original query string first (e.g. ?favoritesOnly=true on
+    // the protected page being redirected away from) before setting
+    // redirectTo - otherwise it leaks into the /login URL alongside it.
+    redirectUrl.search = "";
     redirectUrl.searchParams.set("redirectTo", pathname);
     return NextResponse.redirect(redirectUrl);
   }
